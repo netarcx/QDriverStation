@@ -29,6 +29,7 @@ Label {
     property alias name: label.text
 
     font.family: "FontAwesome"
+    renderType: Text.NativeRendering
     verticalAlignment: Text.AlignVCenter
     horizontalAlignment: Text.AlignHCenter
 }

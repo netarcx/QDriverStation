@@ -1,4 +1,4 @@
-import QtQuick 2.0
+import QtQuick 2.6
 import QtQuick.Controls 2.15
 
 import "../Globals.js" as Globals
@@ -39,6 +39,7 @@ ComboBox {
         font.family: Globals.uiFont
         color: Globals.Colors.Foreground
         font.pixelSize: Globals.scale (12)
+        renderType: Text.NativeRendering
         verticalAlignment: Text.AlignVCenter
         horizontalAlignment: alignRight ? Text.AlignRight : Text.AlignLeft
         elide: Text.ElideRight

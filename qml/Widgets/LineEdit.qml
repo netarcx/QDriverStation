@@ -83,6 +83,7 @@ Item {
         font.family: Globals.uiFont
         font.pixelSize: Globals.scale (12)
         anchors.margins: Globals.scale (5)
+        renderType: TextInput.NativeRendering
     }
 
     //
@@ -97,5 +98,6 @@ Item {
         font.pixelSize: Globals.scale (12)
         anchors.margins: Globals.scale (5)
         selectionColor: Globals.Colors.HighlightColor
+        renderType: TextInput.NativeRendering
     }
 }

@@ -137,6 +137,7 @@ Item {
             readOnly: !parent.enabled
             font.family: Globals.uiFont
             font.pixelSize: Globals.scale (12)
+            renderType: TextEdit.NativeRendering
             wrapMode: Text.WrapAtWordBoundaryOrAnywhere
             selectionColor: Globals.Colors.HighlightColor
             onCursorRectangleChanged: flick.ensureVisible (cursorRectangle)

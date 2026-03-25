@@ -30,8 +30,8 @@ Text {
     readonly property int normal: Globals.scale (12)
     readonly property int medium: Globals.scale (14)
 
-    smooth: true
     font.pixelSize: size
     font.family: Globals.uiFont
     color: Globals.Colors.Foreground
+    renderType: Text.NativeRendering
 }
