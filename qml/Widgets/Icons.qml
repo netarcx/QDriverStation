@@ -27,7 +27,7 @@
 **
 ****************************************************************************/
 
-import QtQuick 2.0
+import QtQuick
 
 QtObject {
     readonly property string fa_adjust                  : "\uf042"

@@ -4,193 +4,144 @@
 
 name: Build
 on:
-  push:               # Run on push
-    paths-ignore:     # File patterns to ignore
-    - '**.md'         # Ignore changes to *.md files
-
-  pull_request:       # Run on pull-request
-    paths-ignore:     # File-patterns to ignore
-    - '**.md'         # Ignore changes to *.md files
-
+  push:
+    paths-ignore:
+      - '**.md'
+    tags:
+      - 'v*'
+  pull_request:
+    paths-ignore:
+      - '**.md'
   workflow_dispatch:
 
 #--------------------------------------------------------------------------------
-# Define application name & version
+# Application metadata
 #--------------------------------------------------------------------------------
 
 env:
-  VERSION: "21.04"
+  VERSION: "2026-Postseason"
   EXECUTABLE: "QDriverStation"
   QMAKE_PROJECT: "QDriverStation.pro"
-  QML_DIR_NIX: "qml"
-  QML_DIR_WIN: "qml"
+  QML_DIR: "qml"
+  QT_VERSION: "6.6.3"
 
 #--------------------------------------------------------------------------------
-# Workflow jobs (GNU/Linux, macOS & Windows)
+# Jobs
 #--------------------------------------------------------------------------------
 
 jobs:
 
-
-  # GNU/Linux build (we run on Ubuntu 16.04 to generate AppImage)
+  # ---------------- GNU/Linux (AppImage) ----------------
   build-linux:
-    runs-on: ubuntu-16.04
-    name: '🐧 Ubuntu 16.04'
+    runs-on: ubuntu-22.04
+    name: '🐧 Linux (AppImage)'
     steps:
+      - name: '🧰 Checkout'
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
-    - name: '🧰 Checkout'
-      uses: actions/checkout@v2
-      with:
-        submodules: recursive
+      - name: '⚙️ Install system dependencies'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            libgl1-mesa-dev libxkbcommon-x11-0 libxcb-icccm4 libxcb-image0 \
+            libxcb-keysyms1 libxcb-render-util0 libxcb-xinerama0 libxcb-cursor0 \
+            libzstd-dev libsdl2-dev libfuse2 desktop-file-utils
 
-    - name: '⚙️ Cache Qt'
-      id: cache-qt
-      uses: actions/cache@v1
-      with:
-        path: ../Qt
-        key: ${{runner.os}}-QtCache
+      - name: '⚙️ Install Qt'
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: linux
+          target: desktop
+          arch: gcc_64
+          modules: qt5compat qtdeclarative qtshadertools
+          cache: true
 
-    - name: '⚙️ Install Qt'
-      uses: jurplel/install-qt-action@v2
-      with:
-        modules: qtcharts
-        cached: ${{steps.cache-qt.outputs.cache-hit}}
+      - name: '🚧 Build'
+        run: |
+          qmake "${QMAKE_PROJECT}" CONFIG+=release PREFIX=/usr
+          make -j$(nproc)
 
-    # Install additional dependencies, stolen from:
-    # https://github.com/mapeditor/tiled/blob/master/.github/workflows/packages.yml
-    - name: '⚙️ Install dependencies'
-      run: |
-        sudo apt-get update
-        sudo apt-get install libgl1-mesa-dev libxkbcommon-x11-0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-xinerama0 libzstd-dev libsdl2-dev
+      - name: '📦 Package AppImage'
+        run: |
+          make INSTALL_ROOT=appdir install
 
-    - name: '🚧 Compile application'
-      run: |
-          qmake ${{env.QMAKE_PROJECT}} CONFIG+=release PREFIX=/usr
-          make -j8
+          # linuxdeploy + Qt plugin (Qt6 compatible replacement for linuxdeployqt)
+          wget -nv https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage -O linuxdeploy
+          wget -nv https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage -O linuxdeploy-plugin-qt
+          chmod +x linuxdeploy linuxdeploy-plugin-qt
 
-    - name: '📦 Create AppImage'
-      run: |
-        make INSTALL_ROOT=appdir install
+          export QML_SOURCES_PATHS="$PWD/${QML_DIR}"
+          ./linuxdeploy \
+            --appdir appdir \
+            --plugin qt \
+            --output appimage \
+            --desktop-file appdir/usr/share/applications/*.desktop
 
-        wget -c -nv "https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage" -O linuxdeployqt
-        chmod a+x linuxdeployqt
-        ./linuxdeployqt appdir/usr/share/applications/*.desktop -appimage -bundle-non-qt-libs -extra-plugins=imageformats/libqsvg.so -qmldir="${{env.QML_DIR_NIX}}"
+          mv *.AppImage "${EXECUTABLE}-${VERSION}-Linux-x86_64.AppImage"
 
-        # Rename AppImage to match "%AppName%-%Version%-Linux.AppImage" format
-        mv *.AppImage ${{env.EXECUTABLE}}-${{env.VERSION}}-Linux.AppImage
+      - name: '📤 Upload artifact'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.EXECUTABLE }}-${{ env.VERSION }}-Linux
+          path: ${{ env.EXECUTABLE }}-${{ env.VERSION }}-Linux-x86_64.AppImage
 
-    - name: '📤 Upload artifact: AppImage'
-      uses: actions/upload-artifact@v2
-      with:
-        name: ${{env.EXECUTABLE}}-${{env.VERSION}}-Linux.AppImage
-        path: ${{env.EXECUTABLE}}-${{env.VERSION}}-Linux.AppImage
-
-
-  # macOS build
+  # ---------------- macOS (DMG) ----------------
   build-mac:
     runs-on: macos-latest
-    name: '🍎 macOS'
+    name: '🍎 macOS (DMG)'
     steps:
+      - name: '🧰 Checkout'
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
-    - name: '🧰 Checkout'
-      uses: actions/checkout@v2
-      with:
-        submodules: recursive
+      - name: '⚙️ Install Qt'
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: mac
+          target: desktop
+          arch: clang_64
+          modules: qt5compat qtdeclarative qtshadertools
+          cache: true
 
-    - name: '⚙️ Cache Qt'
-      id: cache-qt
-      uses: actions/cache@v1
-      with:
-        path: ../Qt
-        key: ${{runner.os}}-QtCache
+      - name: '⚙️ Install SDL2'
+        run: brew install sdl2
 
-    - name: '⚙️ Install Qt'
-      uses: jurplel/install-qt-action@v2
-      with:
-        modules: qtcharts
-        cached: ${{steps.cache-qt.outputs.cache-hit}}
+      - name: '🚧 Build'
+        run: |
+          qmake "${QMAKE_PROJECT}" CONFIG+=release
+          make -j$(sysctl -n hw.ncpu)
 
-    - name: '🚧 Compile application'
-      run: |
-           qmake ${{env.QMAKE_PROJECT}} CONFIG+=release
-           make -j8
+      - name: '📦 Package DMG'
+        run: |
+          macdeployqt "${EXECUTABLE}.app" -qmldir="${QML_DIR}" -dmg
+          mv "${EXECUTABLE}.dmg" "${EXECUTABLE}-${VERSION}-macOS.dmg"
 
-    - name: '📦 Package application (macdeployqt and zipfile)'
-      run: |
-        macdeployqt ${{env.EXECUTABLE}}.app -qmldir="${{env.QML_DIR_NIX}}"
+      - name: '📤 Upload artifact'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.EXECUTABLE }}-${{ env.VERSION }}-macOS
+          path: ${{ env.EXECUTABLE }}-${{ env.VERSION }}-macOS.dmg
 
-        # ZIP application "%AppName%-%Version%-macOS.zip"
-        # We use ditto instead of zip to use the same commands as Finder
-        ditto -c -k --sequesterRsrc --keepParent "${{env.EXECUTABLE}}.app" ${{env.EXECUTABLE}}-${{env.VERSION}}-macOS.zip
-
-    - name: '📤 Upload artifact: ZIP'
-      uses: actions/upload-artifact@v2
-      with:
-        name: ${{env.EXECUTABLE}}-${{env.VERSION}}-macOS.zip
-        path: ${{env.EXECUTABLE}}-${{env.VERSION}}-macOS.zip
-
-
-  # Windows build
-  build-windows:
-    runs-on: windows-latest
-    name: '🧊 Windows'
+  # ---------------- Release (on tag push) ----------------
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build-linux, build-mac]
+    runs-on: ubuntu-latest
+    name: '🚀 Publish release'
     steps:
+      - name: '📥 Download artifacts'
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
 
-    - name: '🧰 Checkout'
-      uses: actions/checkout@v2
-      with:
-        submodules: recursive
-
-    - name: '⚙️ Configure MSVC'
-      uses: ilammy/msvc-dev-cmd@v1
-      with:
-        arch: x64
-        spectre: true
-
-    - name: '⚙️ Cache Qt'
-      id: cache-qt
-      uses: actions/cache@v1
-      with:
-        path: ../Qt
-        key: ${{runner.os}}-QtCache
-
-    - name: '⚙️ Install Qt'
-      uses: jurplel/install-qt-action@v2
-      with:
-        modules: qtcharts
-        cached: ${{steps.cache-qt.outputs.cache-hit}}
-
-    - name: '⚙️ Install NSIS'
-      run: |
-        Invoke-Expression (New-Object System.Net.WebClient).DownloadString('https://get.scoop.sh')
-        scoop bucket add extras
-        scoop install nsis
-
-    - name: '🚧 Compile application'
-      run: |
-        qmake ${{env.QMAKE_PROJECT}} CONFIG+=release
-        nmake
-
-    # Copy Qt DLLs, compiler runtime & application icon
-    - name: '📦 Package application (windeployqt)'
-      run: |
-        mkdir bin
-        move release/${{env.EXECUTABLE}}.exe bin
-        windeployqt bin/${{env.EXECUTABLE}}.exe -qmldir="${{env.QML_DIR_WIN}}" --compiler-runtime
-        mkdir "${{env.EXECUTABLE}}"
-        move bin "${{env.EXECUTABLE}}"
-        xcopy etc\deploy\windows\resources\icon.ico "${{env.EXECUTABLE}}"
-        xcopy etc\deploy\windows\depends\*.dll "${{env.EXECUTABLE}}\bin"
-
-    - name: '📦 Make NSIS installer'
-      run: |
-        move "${{env.EXECUTABLE}}" etc\deploy\windows\nsis\
-        cd etc\deploy\windows\nsis
-        makensis /X"SetCompressor /FINAL lzma" setup.nsi
-        ren *.exe ${{env.EXECUTABLE}}-${{env.VERSION}}-Windows.exe
-
-    - name: '📤 Upload artifact: NSIS installer'
-      uses: actions/upload-artifact@v2
-      with:
-        name: ${{env.EXECUTABLE}}-${{env.VERSION}}-Windows.exe
-        path: etc/deploy/windows/nsis/${{env.EXECUTABLE}}-${{env.VERSION}}-Windows.exe
+      - name: '🚀 Create GitHub release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*
+          generate_release_notes: true

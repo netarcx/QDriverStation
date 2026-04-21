@@ -20,10 +20,10 @@
  * THE SOFTWARE.
  */
 
-import QtQuick 2.0
-import QtQuick.Window 2.0
-import QtQuick.Layouts 1.0
-import Qt.labs.settings 1.0
+import QtQuick
+import QtQuick.Window
+import QtQuick.Layouts
+import Qt.labs.settings
 
 import "../Widgets"
 import "../Globals.js" as Globals

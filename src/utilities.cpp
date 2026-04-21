@@ -61,7 +61,6 @@ static const QString PWR_CMD = "pmset -g batt";
 
 #if defined Q_OS_LINUX
 #   include <QFile>
-#   include <QRegExp>
 
 static const QString BTY_CMD = "bash -c \"upower -i "
                                "$(upower -e | grep 'BAT') | "
