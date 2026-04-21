@@ -1,5 +1,8 @@
 # QDriverStation
 
+> # ✅ Working in 2026 on both macOS and Linux
+> ### Grab the latest build from the [Releases page](https://github.com/netarcx/QDriverStation/releases).
+
 <a href="#">
     <img width="192px" height="192px" src="doc/project.png" align="right" />
 </a>
